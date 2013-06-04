@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset=utf-8">
+		<title>Payments RESTful application</title>
+		<link rel="stylesheet" href="http://twitter.github.com/bootstrap/assets/css/bootstrap.css">
+	</head>
+	</head>
+	<body>
+	  <div class="container">
+	    <h1>Payments</h1>
+	    <hr />
+	    <div class="page"></div>
+	  </div>
+	  
+	  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.3/underscore-min.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/backbone.js/0.9.10/backbone-min.js"></script>
+		<script src="serializeForm.min.js"></script>
+		<script src="serializeObject.min.js"></script>
+		
+		
+
+	  <script type="text/template"  id="payments-list-template">
+      <form class="payments-list-form">
+    	<a href="#/new" class="btn btn-primary">New</a>
+    	<hr />
+      <table class="table striped">
+        <thead>
+					<tr>
+						<th>Id</th>
+						<th>Creation Time</th>
+						<th>Intent</th>
+						<th>State</th>
+            <th></th>
+					</tr>
+				</thead>
+        <tbody>
+          <% _.each(payments, function(payment) {   console.log("Payment passed into payments-list-template: ", payment ); %>
+          	<tr>
+              <td><button type="button" id="viewPayment" class="btn btn-link"><%= payment.get('_id') %></button></td>
+							<td><%= payment.get('create_time') %></td>
+							<td><%= payment.get('intent') %></td>
+							<td><%= payment.get('state') %></td>
+						</tr>
+					<% }); %>
+				</tbody>
+			</table>
+    </form>
+    </script>
+    
+    <script type="text/template"  id="payment-detail-template">
+      <form id="payment-detail-form" class="form-inline">
+        <%  console.log("Payment passed into payment-detail-template: ", payment ); %>
+				<legend>Payment Detail:   <%= payment.get('_id') %></legend>
+        <button type="button" id="editPayment" class="btn btn-primary">Edit</button>
+        <% if(  payment.get('state')  == 'created' ) { %>
+        	<button type="button" id="cancelPayment" class="btn btn-danger">Cancel Payment</button>
+        <% } %>
+        <hr />
+        <label>Intent</label>
+        <input type="text" value="<%= payment.get('intent') %>"  class="uneditable-input"/>
+        
+        <label>State</label> 
+        <input type="text" value="<%= payment.get('state') %>"  class="uneditable-input"/>
+
+				<label>Creation Time</label> 
+        <input type="text" value="<%= payment.get('create_time') %>"  class="uneditable-input"/>
+
+
+				 <% var payer = payment.get('payer');  console.log ("Payer: ", payer) %>
+     
+        <label>Payment Method</label>  
+        <input type="text" value="<%= payer.payment_method %>"  class="uneditable-input"/>
+       
+        <hr />
+				<label>First Name</label>   
+ 			  <input type="string" value="<%= payer.payer_info.first_name %>"  class="uneditable-input" /> 
+        
+				<label>Last Name</label>   
+ 			  <input type="string" value="<%= payer.payer_info.last_name %>"  class="uneditable-input" /> 
+        
+	
+        <label>Email</label>   
+ 			  <input type="email" value="<%= payer.payer_info.email %>"  class="uneditable-input" /> 
+        
+        <label>Phone</label>  
+			  <input type="tel" value="<%= payer.payer_info.phone %>"  class="uneditable-input"/> 
+
+				<label>Paypal Id</label>  
+			  <input type="String" value="<%= payer.payer_info.payer_id %>"  class="uneditable-input"/> 
+
+				<label>Shipping Address</label>  
+			  <input type="String" value="<%= payer.payer_info.shipping_address %>"  class="uneditable-input"/> 
+
+				<label>Funding Instrument</label>  
+			  <input type="String" value="<%= payer.payer_info.funding_instruments.credit_card_token %>"  class="uneditable-input"/>
+
+				
+        <hr />
+
+				<label>Transactions</label>  
+        <table name="transactions" class="table striped">
+          <thead>
+					  <tr>
+              <th>Amount</th>
+              <th>Currency (3 Letter Code)</th>
+							<th>Shipping</th>
+							<th>Subtotal</th>
+							<th>Tax</th>
+							<th>Fee</th>
+              <th>Payee Email</th> 
+              <th>Description</th>
+					  </tr>
+				  </thead>
+          <tbody>
+						<% _.each(payment.get('transactions'), function(transaction) { %>
+              <% var amount = transaction.amount; console.log ("Txn amount: ", amount); %>
+              <% var payee = transaction.payee; console.log ("Txn payee: ", payee); %>
+          	  <tr>
+							<td><input class="input-mini" type="number" value="<%= amount.total %>" class="uneditable-input" /> </td>
+              <td><input class="input-mini" type="text" value="<%= amount.currency %>" class="uneditable-input"/> </td> 
+              <td><input class="input-mini" type="text" value="<%= amount.details.shipping %>" class="uneditable-input"/> </td> 
+              <td><input class="input-mini" type="text" value="<%= amount.details.subtotal %>" class="uneditable-input"/> </td> 
+              <td><input class="input-mini" type="text" value="<%= amount.details.tax %>" class="uneditable-input"/> </td> 
+              <td><input class="input-mini" type="text" value="<%= amount.details.fee %>" class="uneditable-input"/> </td> 
+              <td><input class="input-small" type="email" value="<%= payee.email %>" class="uneditable-input"/> </td> 
+							<td><input class="input-small" type="text" value="<%= transaction.description %>" class="uneditable-input"/> </td> 
+						</tr>
+            <% }); %>
+					</tbody>
+				</table>
+	    </form>
+    </script>
+    
+  
+    <script type="text/template"  id="create-payment-template">
+			<form id="create-payment-form" class="form-inline">
+				<legend>Create Payment</legend>
+         <!-- // Required by API   -->
+        <label>Intent</label>
+        <select id="intent" name="intent" required>   
+          <option value="sale">Sale</option>
+          <option value="authorize">Authorize</option>
+          <option value="order">Order</option>
+        </select>
+
+        <!--  NOT Required by API schema so I'm guessing server sets it to created not me but I'm doing it anyway  -->
+        <label>State</label>    
+        <select id="state" name="state"  class="uneditable-input">   
+          <option value="created">created</option>
+          <option value="approved">approved</option>
+          <option value="failed">failed</option>
+          <option value="canceled">canceled</option>
+          <option value="expired">expired</option>
+        </select>
+    
+ 				 <!--  Required by API schema  -->
+        <label>Payment Method</label>  
+        <select  id="payment_method" name="payer[payment_method]" "required" >
+          <option value="credit_card">Credit Card</option>
+          <option value="paypal">PayPal</option>
+				</select>
+
+        <hr/>
+         <!--   NOT Required by API schema -->
+        <label>Email</label>  
+ 			  <input type="email" name="payer[payer_info][email]"  /> 
+        
+        <label>Phone (999.999.9999)</label>   <!-- NOT Required by API schema  -->
+			  <input id="phone" type="tel" name="payer[payer_info][phone]" pattern='\d{3}.\d{3}.\d{4}'  /> 
+
+				<hr/>
+        <table name="transactions" class="table striped">
+          <thead>
+					  <tr>
+              <th>Amount</th>
+              <th>Currency (3 Letter Code)</th>
+              <th>Payee Email</th>  <!-- NOT Required by API schema  -->
+              <th>Description</th>  <!-- NOT Required by API schema  -->
+							<th>Shipping</th>
+							<th>Subtotal</th>
+							<th>Tax</th>
+							<th>Fee</th>
+					  </tr>
+				  </thead>
+          <tbody>
+          	<tr>
+							<td> <input type="number" name="transactions[transaction][amount][total]" required/> </td>
+              <td><input class="input-mini" type="text" name="transactions[transaction][amount][currency]" pattern='[A-Z]{3}' required/> </td> 
+              <td><input class="input-small" type="email" name="transactions[transaction][payee][email]" /></td>  
+							<td><input class="input-small" type="text" name="transactions[transaction][description]"/></td>
+              <td><input class="input-mini" type="text" name="transactions[transaction][amount][details][shipping]" /></td>
+              <td><input class="input-mini" type="text" name="transactions[transaction][amount][details][subtotal]" /></td>
+              <td><input class="input-mini" type="text" name="transactions[transaction][amount][details][tax]" /></td>
+              <td><input class="input-mini" type="text" name="transactions[transaction][amount][details][fee]" class="uneditable-input" </td>
+						</tr>
+					</tbody>
+				</table>
+        <button type="submit" class="btn btn-primary">Create</button>
+			</form>
+		</script>
+		
+		 <script type="text/template"  id="edit-payment-template">
+      <form id="edit-payment-form" class="form-inline">
+        <%  console.log("Payment passed into edit-payment-template: ", payment ); %>
+				<legend>Edit Payment:   <%= payment.get('_id') %></legend>
+
+          <!--  TODO figure out how to make Update button sensitive only after an edit has been made  -->
+        <button type="button" id="editPayment" class="btn btn-primary">Update</button>
+        <hr />
+
+         <!-- Once intent is set than you don't change it per the Use Case -->
+        <label>Intent</label>
+				<input id="intent"type="text" value="<%= payment.get('intent') %>"  class="uneditable-input"/>
+     
+         <!-- Once state is set than you don't change it per any of the Use Case unless it's
+            from 'created' to 'canceled' but that is through the Cancel button only
+            However, I don't like the proposed use of payments/payment/{id}/execute to change the
+            the state from 'created' to 'approved' so let the browser user or merchant application
+            do that and our server can either accept it or throw an error -->
+        <label>State</label> 
+          <% if(  payment.get('state')  === "created" ) { %>
+				 <select id="state" name="state" >   
+           <option value="created">Created</option>
+           <option value="approved">Approved</option>
+           <% } else { %>
+         <select id="state" name="state"  class="uneditable-input" > 
+            <option value=<%= payment.get('state')  %> ><%= payment.get('state') %></option>
+          <% } %>
+        </select>
+  
+        <% var payer = payment.get('payer'); var pm = payer.payment_method; %>
+
+				<label>Payment Method</label>  
+        <select id="payment_method" name="payer[payment_method]" "required" >
+          <option value="credit_card" <% if(_.isEqual(pm, 'credit_card'))  %> >Credit Card</option>
+          <option value="paypal" <% if( _.isEqual(pm, 'paypal')) print('selected')  %> >PayPal</option>
+				</select>
+
+        <hr/>
+         <!--   NOT Required by API schema -->
+        <label>Email</label>  
+ 			  <input type="email" name="payer[payer_info][email]"  value="<%= payment.get('payer').payer_info.email %>" /> 
+        
+        <label>Phone (999.999.9999)</label>   <!-- NOT Required by API schema  -->
+			  <input id="phone" type="tel" name="payer[payer_info][phone]" pattern='\d{3}.\d{3}.\d{4}' value="<%= payment.get('payer').payer_info.phone %>" /> 
+
+        </select>
+	    </form>
+    </script>
+    
+		
+		<script>
+	   
+			$.ajaxPrefilter( function( options, originalOptions, jqXHR ) {
+			      options.url = 'http://0.0.0.0:8090/v1/payments' + options.url;
+			      options.crossDomain = true;
+			    });
+
+
+			
+			var Transaction = Backbone.Model.extend({
+			});
+			
+			var Transactions = Backbone.Collection.extend({
+			    model: Transaction
+			  });
+			  
+		  var Payment = Backbone.Model.extend({
+				urlRoot: '/payment',
+			
+		  });
+		  
+		  var Payments = Backbone.Collection.extend({
+			    model: Payment,
+					url: '/payment'
+			  });
+
+		  
+		  var PaymentsListView = Backbone.View.extend( {
+        el: '.page',
+        render: function() {
+          var that = this;
+          console.log("about to fetch payments!");
+          var payments = new Payments();
+          payments.fetch({
+ 						success: function(payments) {
+// 							console.log(payments);
+// 							console.log( $('#payments-list-template').html() );
+
+ 	 						// I could set that.model = payments but I would rather fetch from server
+ 	 						// each time because payments may be changing on the server that I'm not 
+ 	 						// operating on and getting the latest from the sever will simply any
+ 	 						// state differences
+ 	 						var template = _.template( $('#payments-list-template').html(), {payments: payments.models});
+ 	 						that.$el.html(template);
+ 	 					},
+ 	 					error: function() {
+							console.log("error retrieving payments!");
+						}
+          })
+        },
+        events: {
+					'click #viewPayment': 'viewPaymentDetails'
+				},
+
+				
+				// Currently NOT re-writing full url and not calling server because Payments object is fully hydrated from 'GET' payments
+				// May need to figure out how to get submit event from button and call PaymentView wihtout calling server but
+				// re-writing full url so client isn't confused
+				// If payments wasn't fully hydrated than would call server for payment details ....  discuss with API team
+				viewPaymentDetails: function(ev) {
+					// TODO  maybe find a better way to get payment id than use link text 
+					// use trigger true so Backbone keeps track of state and can handle browser back button
+					router.navigate("payment/" +  ev.currentTarget.textContent, {trigger: true});
+				}
+			});
+
+		  var PaymentView = Backbone.View.extend( {
+			  el: '.page',
+        render: function(options) {
+          var that = this;
+      	  that.payment = new Payment({id: options.id});
+          that.payment.fetch({
+ 						success: function(payment) {
+ 	 						that.model = payment;
+ 							console.log("backbone payment after fetch: ", payment);
+ 	 						var template = _.template( $('#payment-detail-template').html(), {payment: payment});
+ 	 						that.$el.html(template);
+ 	 					},
+ 	 					error: function() {
+							console.log("error retrieving payment details!");
+						}
+          });
+          // support ability to chain
+          return this;  
+        },
+        events: {
+					'click #editPayment': 'editPaymentDetails',
+					'click #cancelPayment': 'cancelPaymentDetails'
+				},
+				cancelPaymentDetails: function(ev) {
+					console.log("Attempting to cancel payment: ", this.model.get('_id') );
+
+					// Don't use destroy on the Backbone model and map it to cancel on the server
+					// Backbone triggers a "destroy" event on the model, which will bubble up through any collections that contain it
+//					this.model.detroy({
+          this.model.save( {state: 'canceled'}, { patch: true,
+            //sucess fn can take hash (model, response, options)
+ 						success: function(model) {
+ 							console.log("Cancel payment successful: ");
+ 							router.navigate('', {trigger: true});
+ 	 					},
+ 	 					//error fn can take hash (model, xhr, options) 
+ 	 					error: function(model) {
+ 	 	 					model.set({ state: 'approved'});
+							console.log("error canceling payment!");
+						}
+					});
+				},
+				editPaymentDetails: function(ev) {
+					// Don't use current view Backbone payment object because user could have been viewing
+					// this payment for 30 minutes and possibly changed on server.  Just call EditPaymentView
+					// with the id and let the EditPaymentView fetch the latest state before allowing user
+					// to modify
+					console.log("Attempting to edit payment: ", this.model.get('_id') );
+					router.navigate( "edit/" + this.model.get('_id'), {trigger: true});
+				}
+			});
+
+					
+		  var CreatePaymentView  = Backbone.View.extend({
+			  el: '.page',
+	        render: function() {
+		 	 			var template = _.template( $('#create-payment-template').html(), {payment: null});
+		 	 			this.$el.html(template);
+	        },
+	    	events: {
+					'submit #create-payment-form': 'savePayment'
+	    	},
+	    	savePayment: function(ev) {
+					var details= $(ev.currentTarget).serializeForm();
+					console.log("Payment details to be saved: ", JSON.stringify( details));
+					var payment = new Payment();
+					var transactions = new Array();
+					transactions[0] = details.transactions.transaction;
+					payment.set( {'intent' : details.intent,
+						'state' : details.state,
+						'payer' : details.payer,
+						'transactions': transactions } );
+					payment.save( null, {
+						success: function(payment){
+						  // trigger the routes so state is saved and url is written
+						  // this will allow the browser back and forward navigation to work
+							router.navigate('', {trigger: true});
+						},
+						error: function(err) {
+							console.log("could not create ! ", err);
+						}
+				});
+				// stop browser from submiting 
+				return false;
+	 			}
+			});
+			  
+
+
+		  var EditPaymentView = Backbone.View.extend( {
+      	el: '.page',
+        render: function(options) {
+       	var that = this;
+//           if(options.id) TODO option.id can NOT be null   
+
+        that.payment = new Payment({id: options.id});
+        that.payment.fetch({
+          success: function(payment) {
+           var template = _.template( $('#edit-payment-template').html(), {payment: payment});
+           // $el is a cached jQuery (or Zepto) object for the view's element.
+           // A handy reference instead of re-wrapping the DOM element all the time. 
+           that.$el.html(template);
+          },
+          error: function() {
+           console.log("error retrieving payment!");
+          }
+         });
+        return this;
+        },
+        events: {
+          'submit .edit-payment-form': 'updatePayment'
+        },
+        updatePayment: function(ev) {
+      	  this.model = that.model;
+          this.model.save( this.model, {   //patch: true,
+						success: function() {
+							console.log("Update payment successful: ");
+							// trigger the routes so state is saved and url is written
+               // this will allow the browser back and forward nagivation to work
+               router.navigate('', {trigger: true});
+						},
+						error: function() {
+							console.log("error updating payment!");
+						}
+          });
+				}
+      });
+
+			
+		
+		   var Router = Backbone.Router.extend({
+		     routes:  {
+		     '': 'home',
+		     'new': 'create',
+		     'edit/:id': 'edit',
+		     'payment/:id': 'view',
+		     }
+		  }); 
+			  
+			var paymentsListView = new PaymentsListView();
+			var paymentView = new PaymentView();
+			var editPaymentView = new EditPaymentView();
+			var createPaymentView = new CreatePaymentView();
+			
+		  var router = new Router();
+			router.on('route:home', function() {
+				paymentsListView.render();
+			});
+			router.on('route:view', function(id) {
+				paymentView.render({id: id});
+			});
+			router.on('route:create', function() {
+				createPaymentView.render();
+			});
+			router.on('route:edit', function(id) {
+				editPaymentView.render({id: id});
+			});
+
+			Backbone.history.start();
+			
+    </script>
+	</body>
+</html>
